@@ -1,8 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
-import datetime
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from phonenumber_field.modelfields import PhoneNumberField
+from django.utils import timezone
+
 # Create your models here.
 '''
 class Channel(models.Model):
@@ -33,7 +35,7 @@ class UserDetails(models.Model):
     permanent_add=models.TextField()
     permanent_add_pincode=models.CharField(max_length=6)
     current_add = models.TextField(null=True,blank=True)
-    current_add_pincode = models.CharField(max_length=6.null=True,blank=True)
+    current_add_pincode = models.CharField(max_length=6,null=True,blank=True)
     adhaar_card=models.CharField(max_length=12)
     email=models.EmailField(unique=True)
     password=models.CharField(max_length=20)
@@ -44,8 +46,9 @@ class UserDetails(models.Model):
 class Channel(models.Model):
     createdBy = models.ForeignKey(User, on_delete=models.CASCADE)
     channel_name = models.CharField(max_length=30,unique=True)
-    creationDate=models.DateField(default=datetime.date.today())
+    creationDate=models.DateField(default=timezone.now)
     description=models.TextField(max_length=100)
+    channel_type = models.CharField(max_length=10,choices=[('R','Private'),('U','Public')],default='U')
     def __str__(self):
         return self.channel_name +" Channel"
 
@@ -69,19 +72,14 @@ class Post(models.Model):
     date_posted = models.DateTimeField(default=timezone.now)
     title = models.CharField(null=True, blank=True, max_length=100)
     caption = models.TextField(null=True, blank=True)
+    image = models.FileField(upload_to='post_images/',null=True,blank=True)
     files = models.FileField(upload_to='posts/', null=True, blank=True)
+    activated=models.BooleanField(default=False)
 
 class Comments(models.Model):
     commented_post=models.ForeignKey(Post,on_delete=models.CASCADE)
     commented_by=models.ForeignKey(User,on_delete=models.CASCADE)
     comment=models.TextField()
-
-
-
-
-
-
-
 
 
 

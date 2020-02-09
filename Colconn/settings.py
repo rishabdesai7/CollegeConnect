@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'colcon.apps.ColconConfig',
+    'phonenumber_field',
 ]
 
 MIDDLEWARE = [
