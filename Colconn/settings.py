@@ -78,10 +78,8 @@ WSGI_APPLICATION = 'Colconn.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
-        'NAME': '',
-        'HOST': '',
-        'USER':'',
-        'PASSWORD':''
+        'NAME': 'CollConn',
+        
     }
 }
 

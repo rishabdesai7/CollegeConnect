@@ -3,8 +3,11 @@ from django.http import HttpResponse,JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from colcon.models import Profile
 from django.core.exceptions import ObjectDoesNotExist
-import smtplib
+import math, random
+from django.core.mail import send_mail
+from django.conf import settings
 #utilities
 
 import pusher
@@ -30,6 +33,27 @@ def get_token(user):
     return auth
 
 
+def generateOTP():
+    digits = "0123456789"
+    OTP = ""
+    for i in range(4):
+        OTP += digits[math.floor(random.random() * 10)]
+    return OTP
+
+def email(receiver,msg = ''):
+    subject = 'Otp to change password'
+    email_from = settings.EMAIL_HOST_USER
+    recipient_list = [receiver,]
+    send_mail( subject, msg, email_from, recipient_list )
+    #return redirect('redirect to a new page')
+
+
+
+
+####################################################################################################################################################################################################################################################################################################################################
+
+
+
 #Views
 @csrf_exempt
 def login(req):
@@ -42,6 +66,9 @@ def login(req):
             return HttpResponse(status= 400)
         user = authenticate(username=req.POST.get("id"), password=req.POST.get("pwd"))
         if user:
+            temp = Profile.objects.get(user = user)
+            if not temp.activated:
+                return HttpResponse('not activated')
             auth = get_token(user)
             return JsonResponse({"msg":"login successful","auth":auth},status=200)
         else:
@@ -57,12 +84,13 @@ def forgot_password(req,id):
         if not id :
             return HttpResponse(status= 400)
         User.objects.get(username=id)
-        #send_mail(id,'trial')
-        return HttpResponse(status=200)
+        otp = generateOTP()
+        email(id,'OTP:'+otp)
+        return JsonResponse({'otp':otp},status=200)
     except ObjectDoesNotExist :
         return HttpResponse(status=204)
     except Exception:
-        return HttpResponse(str(Exception),status=500)
+        return HttpResponse(status=500)
 
 
 @csrf_exempt
