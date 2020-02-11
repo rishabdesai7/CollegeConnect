@@ -40,12 +40,35 @@ def generateOTP():
         OTP += digits[math.floor(random.random() * 10)]
     return OTP
 
-def email(receiver,msg = ''):
+def forgot_email(receiver,msg = ''):
     subject = 'Otp to change password'
     email_from = settings.EMAIL_HOST_USER
     recipient_list = [receiver,]
     send_mail( subject, msg, email_from, recipient_list )
     #return redirect('redirect to a new page')
+
+def activate_email(receiver,msg = ''):
+    subject = 'Link to Activate Account'
+    email_from = settings.EMAIL_HOST_USER
+    recipient_list = [receiver,]
+    send_mail( subject, msg, email_from, recipient_list )
+    #return redirect('redirect to a new page')
+
+def encrypt(msg):
+    msg = str(msg)
+    temp = ''
+    for x in msg:
+        temp += chr(ord(x)+13)
+    return temp[::-1]
+    #return msg
+
+
+def decrypt(msg):
+    msg = msg[::-1]
+    temp = ''
+    for x in msg:
+        temp += chr(ord(x)-13)
+    return temp
 
 
 
@@ -68,14 +91,21 @@ def login(req):
         if user:
             temp = Profile.objects.get(user = user)
             if not temp.activated:
-                return HttpResponse('not activated')
+                token = encrypt(user.username)
+                activate_email(str(temp.email),'http://127.0.0.1:8000/colcon/activate/'+token)
+                return HttpResponse(status = 403)
             auth = get_token(user)
             return JsonResponse({"msg":"login successful","auth":auth},status=200)
         else:
             return HttpResponse(status = 401)
     except Exception:
+        print(Exception.__str__())
         return HttpResponse(status=500)
 
+
+@csrf_exempt
+def activate(req,id):
+    pass
 @csrf_exempt
 def forgot_password(req,id):
     try:
@@ -85,7 +115,7 @@ def forgot_password(req,id):
             return HttpResponse(status= 400)
         User.objects.get(username=id)
         otp = generateOTP()
-        email(id,'OTP:'+otp)
+        forgot_email(id,'OTP:'+otp)
         return JsonResponse({'otp':otp},status=200)
     except ObjectDoesNotExist :
         return HttpResponse(status=204)
