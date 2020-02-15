@@ -1,15 +1,20 @@
 from django.shortcuts import render
-from django.http import HttpResponse,JsonResponse
+from django.http import HttpResponse,JsonResponse,FileResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from colcon.models import Profile
+from colcon.models import Profile,UserDetail,ProfileSerializer
 from django.core.exceptions import ObjectDoesNotExist
 import math, random
 from django.core.mail import send_mail
+import json
 from django.conf import settings
-#utilities
 
+
+
+#utilities
+keys_dict = {}
+logins = {}
 import pusher
 pusher_client = pusher.Pusher(
   app_id='933316',
@@ -19,17 +24,14 @@ pusher_client = pusher.Pusher(
   ssl=True
 )
 
+
+# pusher_client.trigger('my-channel', 'my-event', {'message': 'hello rishab'})
+
 def get_token(user):
     from uuid import uuid4
-    import json
-    from datetime import datetime
-    auth,js = uuid4(),{}
-    #pusher_client.trigger('my-channel', 'my-event', {'message': 'hello rishab'})
-    with open('F:\Colconn\colcon\AUTH.json') as f:
-        js =  json.load(f)
-    js.update({int(auth):[user.username,str(datetime.now())]})
-    with open('F:\Colconn\colcon\AUTH.json','w') as f:
-        json.dump(js,f)
+    auth = uuid4().__str__()
+    keys_dict.update({auth:user})
+    logins.update({user.username:auth})
     return auth
 
 
@@ -45,29 +47,27 @@ def forgot_email(receiver,msg = ''):
     email_from = settings.EMAIL_HOST_USER
     recipient_list = [receiver,]
     send_mail( subject, msg, email_from, recipient_list )
-    #return redirect('redirect to a new page')
 
 def activate_email(receiver,msg = ''):
     subject = 'Link to Activate Account'
     email_from = settings.EMAIL_HOST_USER
     recipient_list = [receiver,]
     send_mail( subject, msg, email_from, recipient_list )
-    #return redirect('redirect to a new page')
+
 
 def encrypt(msg):
     msg = str(msg)
     temp = ''
     for x in msg:
-        temp += chr(ord(x)+13)
+        temp += chr(ord(x)+3)
     return temp[::-1]
-    #return msg
 
 
 def decrypt(msg):
     msg = msg[::-1]
     temp = ''
     for x in msg:
-        temp += chr(ord(x)-13)
+        temp += chr(ord(x)-3)
     return temp
 
 
@@ -92,20 +92,30 @@ def login(req):
             temp = Profile.objects.get(user = user)
             if not temp.activated:
                 token = encrypt(user.username)
-                activate_email(str(temp.email),'http://127.0.0.1:8000/colcon/activate/'+token)
+                activate_email(str(temp.email),'http://192.168.0.5:8000/colcon/activate/'+token)
                 return HttpResponse(status = 403)
+            if user.username in logins:
+                del keys_dict[logins[user.username]]
             auth = get_token(user)
-            return JsonResponse({"msg":"login successful","auth":auth},status=200)
+            userdetails = UserDetail.objects.get(idno = user.username)
+            data = {'id':userdetails.idno,'name':userdetails.name,'accounttype':userdetails.type,'email':userdetails.email,'image':ProfileSerializer(temp).data['profilePicture']}
+            return JsonResponse({"msg":"login successful","auth":auth,"data":data},status=200)
         else:
             return HttpResponse(status = 401)
-    except Exception:
-        print(Exception.__str__())
+    except Exception as e:
         return HttpResponse(status=500)
 
 
 @csrf_exempt
 def activate(req,id):
-    pass
+    id = decrypt(id)
+    user = User.objects.get(username = id)
+    temp = Profile.objects.get(user = user)
+    temp.activated = True
+    temp.save()
+    return HttpResponse("<h1>Account Activated</h1>")
+
+
 @csrf_exempt
 def forgot_password(req,id):
     try:
@@ -137,4 +147,46 @@ def reset_password(req,id,pwd):
     except ObjectDoesNotExist :
         return HttpResponse(status=204)
     except Exception:
+        return HttpResponse(status=500)
+
+
+@csrf_exempt
+def logout(req):
+    try:
+        del logins[keys_dict[req.headers['Authorization']].username]
+        del keys_dict[req.headers['Authorization']]
+        return HttpResponse(status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+
+@csrf_exempt
+def profile_picture_upload(req):
+    import datetime
+    try:
+        user = keys_dict[req.headers['Authorization']]
+        profile = Profile.objects.get(user=user)
+        profile.profilePicture.delete()
+        profile.profilePicture.save(user.username+'_'+str(datetime.datetime.now())+'_'+req.FILES['my_photo'].name,req.FILES['my_photo'])
+        return JsonResponse({'image':ProfileSerializer(profile).data['profilePicture']},status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+
+@csrf_exempt
+def channel_list(req):
+    try:
+        user = keys_dict[req.headers['Authorization']]
+        profile = Profile.objects.get(user=user)
+        channels = profile.channels.all()
+        data = []
+        for x in channels:
+            temp = {'title':x.channel_name}
+            data.append(temp)
+        return JsonResponse({'data':data},status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
         return HttpResponse(status=500)

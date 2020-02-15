@@ -4,26 +4,18 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from phonenumber_field.modelfields import PhoneNumberField
 from django.utils import timezone
-
+from rest_framework import serializers
 # Create your models here.
 
-class UserDetails(models.Model):
-    rollno=models.CharField(max_length=10,unique=True)
+class UserDetail(models.Model):
+    idno=models.CharField(max_length=30,unique=True)
     name=models.CharField(max_length=50)
-    father_name=models.CharField(max_length=50)
-    mother_name=models.CharField(max_length=50)
-    father_phno=PhoneNumberField(null=True,blank=True)#models.CharField(max_length=10)
-    mother_phno=PhoneNumberField(null=True,blank=True)#models.CharField(max_length=10)
     phno=PhoneNumberField()
-    permanent_add=models.TextField()
-    permanent_add_pincode=models.CharField(max_length=6)
-    current_add = models.TextField(null=True,blank=True)
-    current_add_pincode = models.CharField(max_length=6,null=True,blank=True)
-    adhaar_card=models.CharField(max_length=12)
+    type = models.CharField(max_length=10,choices=[('S','Student'),('F','Faculty')])
     email=models.EmailField()
     year=models.CharField(max_length=1)
     def __str__(self):
-        return self.rollno
+        return self.idno
 
 class Channel(models.Model):
     createdBy = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -43,6 +35,11 @@ class Profile(models.Model):
     email=models.EmailField()
     def __str__(self):
         return self.user.username + " Profile"
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = '__all__'
 
 @receiver(post_save, sender=User)
 def create_profile(sender, instance, created, **kwargs):
