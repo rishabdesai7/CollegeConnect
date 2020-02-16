@@ -3,12 +3,13 @@ from django.http import HttpResponse,JsonResponse,FileResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from colcon.models import Profile,UserDetail,ProfileSerializer
+from colcon.models import Profile,UserDetail,ProfileSerializer,Post,Channel,PostSerializer,Comments
 from django.core.exceptions import ObjectDoesNotExist
 import math, random
 from django.core.mail import send_mail
 import json
 from django.conf import settings
+import datetime
 
 
 
@@ -161,7 +162,6 @@ def logout(req):
 
 @csrf_exempt
 def profile_picture_upload(req):
-    import datetime
     try:
         user = keys_dict[req.headers['Authorization']]
         profile = Profile.objects.get(user=user)
@@ -177,12 +177,100 @@ def profile_picture_upload(req):
 @csrf_exempt
 def channel_list(req):
     try:
+        if req.method != 'GET':
+            return HttpResponse(status=405)
         user = keys_dict[req.headers['Authorization']]
         profile = Profile.objects.get(user=user)
         channels = profile.channels.all()
         data = []
         for x in channels:
             temp = {'title':x.channel_name}
+            data.append(temp)
+        return JsonResponse({'data':data},status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+
+@csrf_exempt
+def add_post(req):
+    try:
+        if req.method != 'POST':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        profile = Profile.objects.get(user=user)
+        channel = profile.channels.get(channel_name = req.POST.get('channelName'))
+        post = Post()
+        post.posted_in = channel
+        post.posted_by = user
+        post.title = req.POST.get('title')
+        post.description = req.POST.get('description')
+        post.save()
+        if 'my_photo' in req.FILES:
+            post.image.save(user.username+'_'+str(datetime.datetime.now())+'_'+req.FILES['my_photo'].name,req.FILES['my_photo'])
+        if 'my_file' in req.FILES:
+            post.files.save(user.username + '_' + str(datetime.datetime.now()) + '_' + req.FILES['my_file'].name,req.FILES['my_file'])
+        return HttpResponse(status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+
+
+@csrf_exempt
+def get_posts(req,channel_name):
+    try:
+        if req.method != 'GET':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        channel = Channel.objects.get(channel_name = channel_name)
+        posts = Post.objects.filter( posted_in= channel)
+        data = []
+        for x in posts:
+            temp = PostSerializer(x).data
+            temp.update({'by':UserDetail.objects.get(idno = x.posted_by.username).name})
+            data.append(temp)
+        return JsonResponse({'data':data},status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+
+
+@csrf_exempt
+def add_comment(req):
+    try:
+        if req.method != 'POST':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        post = Post.objects.get(id = req.POST.get('id'))
+        comment = Comments()
+        comment.comment = req.POST.get('comment')
+        comment.commented_by = user
+        comment.commented_post = post
+        comment.save()
+        return HttpResponse(status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+
+
+@csrf_exempt
+def get_comments(req,postid):
+    try:
+        if req.method != 'GET':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        post = Post.objects.get( id = postid)
+        comments = Comments.objects.filter(commented_post = post)
+        data = []
+        for x in comments:
+            temp = {'title':UserDetail.objects.get(idno = x.commented_by.username).name,'description':x.comment}
             data.append(temp)
         return JsonResponse({'data':data},status=200)
     except KeyError:

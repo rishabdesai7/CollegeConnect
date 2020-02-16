@@ -52,9 +52,14 @@ class Post(models.Model):
     posted_by=models.ForeignKey(User,on_delete=models.CASCADE)
     date_posted = models.DateTimeField(default=timezone.now)
     title = models.CharField(null=True, blank=True, max_length=100)
-    caption = models.TextField(null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
     image = models.FileField(upload_to='post_images/',null=True,blank=True)
     files = models.FileField(upload_to='posts/', null=True, blank=True)
+
+class PostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Post
+        fields = '__all__'
 
 class Comments(models.Model):
     commented_post=models.ForeignKey(Post,on_delete=models.CASCADE)

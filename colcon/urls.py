@@ -9,4 +9,8 @@ urlpatterns = [
     path('logout',views.logout,name='logout'),
     path('ppu',views.profile_picture_upload,name = 'ppu'),
     path('channelList',views.channel_list,name = 'cl'),
+    path('addPost',views.add_post,name = 'ap'),
+    path('getPost/<str:channel_name>',views.get_posts,name ='po'),
+    path('addComment',views.add_comment,name = 'ac'),
+    path('getComment/<int:postid>',views.get_comments,name = 'gc'),
 ]
