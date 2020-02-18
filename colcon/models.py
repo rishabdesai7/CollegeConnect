@@ -66,7 +66,17 @@ class Comments(models.Model):
     commented_by=models.ForeignKey(User,on_delete=models.CASCADE)
     comment=models.TextField()
 
+class ChannelRequests(models.Model):
+    name = models.CharField(max_length=30)
+    description = models.TextField(max_length=100)
+    by = models.OneToOneField(User, on_delete=models.CASCADE)
+    type = models.CharField(max_length=10,choices=[('R','Private'),('U','Public')],default='U')
 
 
 
+class Report(models.Model):
+    reported_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    person =  models.CharField(max_length=20)
+    channel =  models.CharField(max_length=20)
+    complaint = models.TextField(max_length=500)
 

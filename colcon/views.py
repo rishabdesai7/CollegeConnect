@@ -3,7 +3,7 @@ from django.http import HttpResponse,JsonResponse,FileResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
-from colcon.models import Profile,UserDetail,ProfileSerializer,Post,Channel,PostSerializer,Comments
+from colcon.models import Profile,UserDetail,ProfileSerializer,Post,Channel,PostSerializer,Comments,ChannelRequests,Report
 from django.core.exceptions import ObjectDoesNotExist
 import math, random
 from django.core.mail import send_mail
@@ -270,7 +270,8 @@ def get_comments(req,postid):
         comments = Comments.objects.filter(commented_post = post)
         data = []
         for x in comments:
-            temp = {'title':UserDetail.objects.get(idno = x.commented_by.username).name,'description':x.comment}
+            profile = Profile.objects.get(user=x.commented_by)
+            temp = {'title':UserDetail.objects.get(idno = x.commented_by.username).name,'description':x.comment,'image':ProfileSerializer(profile).data['profilePicture']}
             data.append(temp)
         return JsonResponse({'data':data},status=200)
     except KeyError:
@@ -278,3 +279,44 @@ def get_comments(req,postid):
     except Exception as e:
         print(type(e),e)
         return HttpResponse(status=500)
+
+
+@csrf_exempt
+def add_channel_request(req):
+    try:
+        if req.method != 'POST':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        cr = ChannelRequests()
+        cr.by = user
+        cr.name = req.POST.get('name')
+        cr.description = req.POST.get('description')
+        cr.type = req.POST.get('type')
+        cr.save()
+        return HttpResponse(status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+
+
+@csrf_exempt
+def add_complaint(req):
+    try:
+        if req.method != 'POST':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        cr = Report()
+        cr.reported_by = user
+        cr.channel = req.POST.get('name')
+        cr.person = req.POST.get('idp')
+        cr.complaint = req.POST.get('issue')
+        cr.save()
+        return HttpResponse(status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+

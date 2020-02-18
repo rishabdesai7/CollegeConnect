@@ -13,4 +13,6 @@ urlpatterns = [
     path('getPost/<str:channel_name>',views.get_posts,name ='po'),
     path('addComment',views.add_comment,name = 'ac'),
     path('getComment/<int:postid>',views.get_comments,name = 'gc'),
+    path('addChannelRequest',views.add_channel_request,name = 'acr'),
+    path('addComplaint',views.add_complaint,name = 'acp'),
 ]
