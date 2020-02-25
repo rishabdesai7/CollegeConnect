@@ -7,7 +7,6 @@ from colcon.models import Profile,UserDetail,ProfileSerializer,Post,Channel,Post
 from django.core.exceptions import ObjectDoesNotExist
 import math, random
 from django.core.mail import send_mail
-import json
 from django.conf import settings
 import datetime
 
@@ -55,6 +54,10 @@ def activate_email(receiver,msg = ''):
     recipient_list = [receiver,]
     send_mail( subject, msg, email_from, recipient_list )
 
+def email(receiver,msg = '',sub = ''):
+    email_from = settings.EMAIL_HOST_USER
+    send_mail( sub, msg, email_from, receiver )
+
 
 def encrypt(msg):
     msg = str(msg)
@@ -99,7 +102,8 @@ def login(req):
                 del keys_dict[logins[user.username]]
             auth = get_token(user)
             userdetails = UserDetail.objects.get(idno = user.username)
-            data = {'id':userdetails.idno,'name':userdetails.name,'accounttype':userdetails.type,'email':userdetails.email,'image':ProfileSerializer(temp).data['profilePicture']}
+            profile = ProfileSerializer(temp)
+            data = {'id':userdetails.idno,'name':userdetails.name,'accounttype':userdetails.type,'email':userdetails.email,'image':profile.data['profilePicture']}
             return JsonResponse({"msg":"login successful","auth":auth,"data":data},status=200)
         else:
             return HttpResponse(status = 401)
@@ -192,6 +196,46 @@ def channel_list(req):
     except Exception as e:
         print(type(e),e)
         return HttpResponse(status=500)
+
+
+
+@csrf_exempt
+def invitation_list(req):
+    try:
+        if req.method != 'GET':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        profile = Profile.objects.get(user=user)
+        channels = profile.invitations.all()
+        data = []
+        for x in channels:
+            temp = {'title':x.channel_name,'description':x.description}
+            data.append(temp)
+        return JsonResponse({'data':data},status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+@csrf_exempt
+def process_invitation(req):
+    try:
+        if req.method != 'POST':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        profile = Profile.objects.get(user = user)
+        channel = Channel.objects.get(channel_name=req.POST.get('channel'))
+        profile.invitations.remove(channel)
+        if req.POST.get('accepted') == 'y':
+            profile.channels.add(channel)
+        return HttpResponse(status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+
+
 
 @csrf_exempt
 def add_post(req):
@@ -320,3 +364,82 @@ def add_complaint(req):
         print(type(e),e)
         return HttpResponse(status=500)
 
+@csrf_exempt
+def add_people(req):
+    try:
+        if req.method != 'POST':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        users_list = req.POST.getlist('users')
+        channel = Channel.objects.get(channel_name = req.POST.get('channel'))
+        email_set = set()
+        for x in users_list:
+            temp_user = User.objects.get(username = x)
+            temp_profile = Profile.objects.get(user = temp_user)
+            temp_profile.invitations.add(channel)
+            email_set.add(temp_profile.email)
+        email(list(email_set), 'you are invited to join ' + channel.channel_name, 'Invitation')
+        return HttpResponse(status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+
+@csrf_exempt
+def get_people(req,type,dept,year,sec):
+    try:
+        if req.method != 'GET':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        if type == 0:
+            temp = UserDetail.objects.filter(type = 'F',dept = dept)
+        else:
+            temp = UserDetail.objects.filter(type = 'S',dept = dept,year = year,sec = sec)
+        data = []
+        for x in temp:
+            obj = {
+                'name' : x.name,
+                'id':x.idno,
+                'checked':False,
+            }
+            data.append(obj)
+        return JsonResponse({'data':data},status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+
+@csrf_exempt
+def delete_channel(req,channel):
+    try:
+        if req.method != 'GET':
+            return HttpResponse(status=405)
+        if channel in {'College','Library','Placement'}:
+            raise Exception
+        temp = Channel.objects.get(channel_name= channel)
+        temp.delete()
+        return HttpResponse(status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)
+
+
+@csrf_exempt
+def change_pwd(req):
+    try:
+        if req.method != 'POST':
+            return HttpResponse(status=405)
+        user = keys_dict[req.headers['Authorization']]
+        pwd = req.POST.get('pwd')
+        user.set_password(pwd)
+        user.save()
+        return HttpResponse(status=200)
+    except KeyError:
+        return HttpResponse(status=404)
+    except Exception as e:
+        print(type(e),e)
+        return HttpResponse(status=500)

@@ -5,6 +5,8 @@ from django.dispatch import receiver
 from phonenumber_field.modelfields import PhoneNumberField
 from django.utils import timezone
 from rest_framework import serializers
+from django.conf import settings
+from django.core.mail import send_mail
 # Create your models here.
 
 class UserDetail(models.Model):
@@ -14,6 +16,8 @@ class UserDetail(models.Model):
     type = models.CharField(max_length=10,choices=[('S','Student'),('F','Faculty')])
     email=models.EmailField()
     year=models.CharField(max_length=1)
+    dept = models.CharField(max_length=4)
+    sec = models.CharField(max_length=1)
     def __str__(self):
         return self.idno
 
@@ -29,23 +33,13 @@ class Channel(models.Model):
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     type = models.CharField(max_length=10,choices=[('S','Student'),('F','Faculty')])
+    invitations = models.ManyToManyField(Channel,related_name='invitation')
     channels=models.ManyToManyField(Channel)
     profilePicture = models.ImageField(default='default.png', upload_to='profile_pics')
     activated=models.BooleanField(default=False)
     email=models.EmailField()
     def __str__(self):
         return self.user.username + " Profile"
-
-class ProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Profile
-        fields = '__all__'
-
-@receiver(post_save, sender=User)
-def create_profile(sender, instance, created, **kwargs):
-    if created:
-        Profile.objects.create(user=instance)
-
 
 class Post(models.Model):
     posted_in= models.ForeignKey(Channel, on_delete=models.CASCADE)
@@ -55,11 +49,6 @@ class Post(models.Model):
     description = models.TextField(null=True, blank=True)
     image = models.FileField(upload_to='post_images/',null=True,blank=True)
     files = models.FileField(upload_to='posts/', null=True, blank=True)
-
-class PostSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Post
-        fields = '__all__'
 
 class Comments(models.Model):
     commented_post=models.ForeignKey(Post,on_delete=models.CASCADE)
@@ -80,3 +69,78 @@ class Report(models.Model):
     channel =  models.CharField(max_length=20)
     complaint = models.TextField(max_length=500)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#############################################Signal Receivers#################################################################################################
+
+def email(receiver,msg = '',sub = ''):
+    email_from = settings.EMAIL_HOST_USER
+    send_mail( sub, msg, email_from, receiver )
+
+@receiver(post_save, sender=User)
+def create_profile(sender, instance, created, **kwargs):
+    if created:
+        Profile.objects.create(user=instance)
+
+
+
+@receiver(post_save,sender = Channel)
+def invite(sender,instance,created,**kwargs):
+    if instance.channel_type == 'U':
+        profiles = Profile.objects.filter(activated = 'True')
+        emails = set()
+        for x in profiles:
+            x.invitations.add(instance)
+            emails.add(x.email)
+        email(emails,'you are invited to join '+instance.channel_name,'Invitation')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#########################################Serializers###########################################################################################
+
+
+
+class PostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Post
+        fields = '__all__'
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = '__all__'
