@@ -110,25 +110,17 @@ def invite(sender,instance,created,**kwargs):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+@receiver(post_save,sender = Post)
+def broadcast(sender,instance,created,**kwargs):
+    import pusher
+    pusher_client = pusher.Pusher(
+        app_id='953718',
+        key='e8318624f1b41157722f',
+        secret='f6adb9233a2c8a2fb541',
+        cluster='ap2',
+        ssl=True
+    )
+    pusher_client.trigger('post','posted', {'channel': instance.posted_in.channel_name})
 
 
 #########################################Serializers###########################################################################################

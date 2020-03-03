@@ -95,8 +95,14 @@ def login(req):
         if user:
             temp = Profile.objects.get(user = user)
             if not temp.activated:
+                import socket
+                hostname = socket.gethostname()
+                IPAddr = socket.gethostbyname(hostname)
+                print("Your Computer Name is:" + hostname)
+                print("Your Computer IP Address is:" + IPAddr)
                 token = encrypt(user.username)
-                activate_email(str(temp.email),'http://192.168.0.5:8000/colcon/activate/'+token)
+                print(temp.email)
+                activate_email(str(temp.email),'http://'+IPAddr+':8000/colcon/activate/'+token)
                 return HttpResponse(status = 403)
             if user.username in logins:
                 del keys_dict[logins[user.username]]
@@ -108,17 +114,19 @@ def login(req):
         else:
             return HttpResponse(status = 401)
     except Exception as e:
+        print(e)
         return HttpResponse(status=500)
 
 
 @csrf_exempt
 def activate(req,id):
-    id = decrypt(id)
-    user = User.objects.get(username = id)
+    id1 = decrypt(id)
+    user = User.objects.get(username = id1)
     temp = Profile.objects.get(user = user)
     temp.activated = True
+    user.set_password(id)
     temp.save()
-    return HttpResponse("<h1>Account Activated</h1>")
+    return HttpResponse("<div><h1>Account Activated</h1><p>Your new password is : <b>"+id+"</b></p></div>")
 
 
 @csrf_exempt
@@ -128,13 +136,15 @@ def forgot_password(req,id):
             return  HttpResponse(status = 405)
         if not id :
             return HttpResponse(status= 400)
-        User.objects.get(username=id)
+        user = User.objects.get(username=id)
+        email = Profile.objects.get(user = user).email
         otp = generateOTP()
-        forgot_email(id,'OTP:'+otp)
+        forgot_email(email,'OTP:'+otp)
         return JsonResponse({'otp':otp},status=200)
     except ObjectDoesNotExist :
         return HttpResponse(status=204)
-    except Exception:
+    except Exception as e:
+        print(e)
         return HttpResponse(status=500)
 
 
